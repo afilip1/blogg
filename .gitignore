@@ -1,0 +1,4 @@
+/target
+**/*.rs.bk
+/blogg_src
+/blogg_target

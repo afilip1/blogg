@@ -1,0 +1,11 @@
+cargo-features = ["edition"]
+
+[package]
+name = "blogg"
+version = "0.1.0"
+authors = ["Anton Filippov <a.filippov@protonmail.com>"]
+edition = '2018'
+
+[dependencies]
+open = "1.2.2"
+clap = "2.32.0"
