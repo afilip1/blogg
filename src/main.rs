@@ -1,27 +1,17 @@
 #![feature(rust_2018_preview)]
-use clap::clap_app;
-use std::{fs, path::Path};
 
-fn main() -> std::io::Result<()> {
-    let matches = clap_app!(blogg =>
-        (version: "0.1.0")
-        (author: "Anton F. <a.filippov@protonmail.com>")
-        (about: "Static blog generator")
-        (@arg open: -o --open "Opens generated index file in default browser upon completion")
-        (@arg SOURCE: --src <SOURCE> "Sets path to directory with blog post sources")
-        (@arg TARGET: --tgt [TARGET] "Sets path to target directory (defaults to './blogg_target')")
-    ).get_matches();
+mod config;
+mod osstrext;
 
-    let src_dir = Path::new(matches.value_of("SOURCE").unwrap());
-    if !src_dir.exists() {
-        panic!("unable to locate source directory");
-    }
+use chrono::{offset::Utc, DateTime};
+use crate::osstrext::OsStrExt;
+use std::{fs, io};
 
-    let tgt_dir = Path::new(matches.value_of("TARGET").unwrap_or("blogg_target"));
-    if tgt_dir.exists() {
-        fs::remove_dir_all(tgt_dir)?;
-    }
-    fs::create_dir(tgt_dir)?;
+fn main() -> io::Result<()> {
+    let config = config::get_config();
+
+    let src_dir = config::get_source_dir(&config)?;
+    let tgt_dir = config::get_target_dir(&config)?;
 
     let mut index = String::new();
     let mut entries = fs::read_dir(src_dir)?
@@ -37,26 +27,32 @@ fn main() -> std::io::Result<()> {
     entries.reverse();
 
     for (created, entry) in entries {
+        let title = entry.path().file_stem().unwrap().into_string();
         let contents = fs::read_to_string(entry.path())?;
+        let created_datetime = DateTime::<Utc>::from(created);
 
-        let out_f_path = entry.path().with_extension("html");
-        let out_f_filename = out_f_path.file_name().unwrap();
+        let target_filename = entry
+            .path()
+            .with_extension("html")
+            .file_name()
+            .unwrap()
+            .into_string();
 
-        let out_path = tgt_dir.join(out_f_filename);
+        let target_path = tgt_dir.join(&target_filename);
         fs::write(
-            out_path,
+            target_path,
             format!(
                 include_str!("templates/post.html"),
-                entry.file_name().to_str().unwrap(),
-                contents
+                title,
+                contents.replace("\n", "<br />")
             ),
         )?;
 
         index.push_str(&format!(
             include_str!("templates/index_item.html"),
-            out_f_filename.to_str().unwrap(),
-            entry.file_name().to_str().unwrap(),
-            chrono::DateTime::<chrono::offset::Utc>::from(created).format("%B %e, %Y, %I:%M %p")
+            target_filename,
+            title,
+            created_datetime.format("%B %e, %Y, %I:%M %p")
         ));
     }
 
@@ -77,7 +73,7 @@ fn main() -> std::io::Result<()> {
     )?;
 
     println!("Blog generated!");
-    if matches.is_present("open") {
+    if config.is_present("open") {
         open::that(tgt_dir.join("index.html"))?;
         println!("Opened in browser!");
     }
