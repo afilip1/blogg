@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
     entries.reverse();
 
     for (created, entry) in entries {
-        let title = entry.path().file_stem().unwrap().into_string();
+        let title = entry.path().file_stem().unwrap().into_string().replace("_", " ");
         let contents = fs::read_to_string(entry.path())?;
         let created_datetime = DateTime::<Utc>::from(created);
 
